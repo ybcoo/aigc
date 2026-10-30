@@ -10,6 +10,7 @@
 
 * { box-sizing: border-box; }
 html, body, #__nuxt { width: 100%; min-height: 100%; margin: 0; }
+html, body { overscroll-behavior-x: none; }
 html.aigc-canvas-page, body.aigc-canvas-page { height: 100%; overflow: hidden; overscroll-behavior: none; }
 html.aigc-canvas-page #__nuxt { height: 100%; overflow: hidden; overscroll-behavior: none; }
 html.aigc-canvas-page * { overscroll-behavior-x: none; }

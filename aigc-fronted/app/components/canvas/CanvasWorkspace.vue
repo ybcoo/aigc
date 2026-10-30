@@ -543,32 +543,6 @@ function closeNodeAgent() {
   void nextTick(updateGroupToolbar)
 }
 
-function guardCanvasWheel(event: WheelEvent) {
-  if (!event.cancelable || event.ctrlKey) return
-  // A gesture can start with zero horizontal motion; some browsers only allow
-  // cancelling that first event. Claim it before it becomes a history swipe.
-  event.preventDefault()
-  const horizontal = Math.abs(event.deltaX) >= Math.abs(event.deltaY)
-  let element = event.target instanceof Element ? event.target : null
-  while (element && element !== document.documentElement) {
-    const style = window.getComputedStyle(element)
-    const max = horizontal ? element.scrollWidth - element.clientWidth : element.scrollHeight - element.clientHeight
-    const position = horizontal ? element.scrollLeft : element.scrollTop
-    const delta = horizontal ? event.deltaX : event.deltaY
-    const overflow = (horizontal ? style.overflowX : style.overflowY) || style.overflow
-    if (/(auto|scroll)/.test(overflow) && max > 0) {
-      if (delta < 0 && position > 0 || delta > 0 && position < max - 1) {
-        const scale = event.deltaMode === 1 ? (parseFloat(style.lineHeight) || 16) : event.deltaMode === 2 ? (horizontal ? element.clientWidth : element.clientHeight) : 1
-        if (horizontal) element.scrollLeft = Math.max(0, Math.min(max, position + delta * scale))
-        else element.scrollTop = Math.max(0, Math.min(max, position + delta * scale))
-        event.stopPropagation()
-        return
-      }
-    }
-    element = element.parentElement
-  }
-}
-
 async function onTextSaved() {
   textEditorTarget.value = undefined
   await loadCanvas(true)
@@ -889,7 +863,6 @@ watch(episodeNumber, () => {
 onBeforeMount(() => {
   document.documentElement.classList.add('aigc-canvas-page')
   document.body.classList.add('aigc-canvas-page')
-  window.addEventListener('wheel', guardCanvasWheel, { capture: true, passive: false })
 })
 onMounted(() => {
   try {
@@ -910,7 +883,6 @@ onBeforeUnmount(() => {
   disposed = true
   if (pollingTimer) clearTimeout(pollingTimer)
   if (layoutTimer) clearTimeout(layoutTimer)
-  window.removeEventListener('wheel', guardCanvasWheel, true)
   document.documentElement.classList.remove('aigc-canvas-page')
   document.body.classList.remove('aigc-canvas-page')
 })

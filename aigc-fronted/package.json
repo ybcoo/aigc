@@ -8,6 +8,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "test:canvas": "node --test tests/canvas-render.test.mjs",
+    "test:gestures": "node --test tests/history-swipe.test.mjs",
     "test:home": "node --test tests/home.test.mjs",
     "test:editor": "node --test tests/editor.test.mjs",
     "postinstall": "nuxt prepare"

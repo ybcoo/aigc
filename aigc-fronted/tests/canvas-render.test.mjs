@@ -64,7 +64,7 @@ const fixture = {
     { id: 'scene-shot', sourceKind: 'scene', sourceId: 'scene', targetKind: 'shot', targetId: 'shot' },
   ],
 }
-let records, requests, app, store, tempDir, vue, Workspace
+let records, requests, app, store, tempDir, vue, Workspace, disposeGlobalWheel
 let holdNextSubmission = false, releaseSubmission
 let rejectNextTextSave = false
 let rejectNextProjectRename = false
@@ -248,6 +248,11 @@ before(async () => {
   }
 
   tempDir = await mkdtemp(resolve(root, 'node_modules/.cache/canvas-render-'))
+  const pluginFile = resolve(tempDir, 'global-wheel.mjs')
+  await build({entryPoints:[resolve(root,'app/plugins/history-swipe.client.ts')],outfile:pluginFile,bundle:true,platform:'node',format:'esm',alias:{'~':resolve(root,'app')}})
+  globalThis.defineNuxtPlugin=plugin=>plugin
+  const plugin=(await import(pathToFileURL(pluginFile).href)).default
+  plugin.setup({vueApp:{onUnmount(dispose){disposeGlobalWheel=dispose}}})
   const outfile = resolve(tempDir, 'workspace.mjs')
   await build({
     entryPoints: [resolve(root, 'app/components/canvas/CanvasWorkspace.vue')], outfile,
@@ -300,6 +305,7 @@ async function mountWorkspace() {
 
 after(async () => {
   app?.unmount()
+  disposeGlobalWheel?.()
   await window.happyDOM.close()
   if (tempDir) await rm(tempDir, { recursive: true, force: true })
 })
@@ -909,10 +915,10 @@ test('canvas gestures are claimed from their first event without disabling panni
   assert.equal(document.body.classList.contains('aigc-canvas-page'), false)
   const afterLeaving = new window.WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: -60 })
   document.body.dispatchEvent(afterLeaving)
-  assert.equal(afterLeaving.defaultPrevented, false, 'the page-level guard must be removed on navigation')
+  assert.equal(afterLeaving.defaultPrevented, true, 'the application-level guard must survive leaving the canvas')
   const afterLeavingVertical=new window.WheelEvent('wheel',{bubbles:true,cancelable:true,deltaY:40})
   document.body.dispatchEvent(afterLeavingVertical)
-  assert.equal(afterLeavingVertical.defaultPrevented,false,'normal page scrolling is restored after leaving the canvas')
+  assert.equal(afterLeavingVertical.defaultPrevented,true,'gesture ownership remains stable across route changes')
   await mountWorkspace()
 })
 
