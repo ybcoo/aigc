@@ -13,6 +13,9 @@ html, body, #__nuxt { width: 100%; min-height: 100%; margin: 0; }
 html.aigc-canvas-page, body.aigc-canvas-page { height: 100%; overflow: hidden; overscroll-behavior: none; }
 html.aigc-canvas-page #__nuxt { height: 100%; overflow: hidden; overscroll-behavior: none; }
 html.aigc-canvas-page * { overscroll-behavior-x: none; }
+/* Protect the viewport before hydration, without depending on a mounted hook. */
+html:has(.workspace-shell), body:has(.workspace-shell) { height: 100%; overflow: hidden; overscroll-behavior: none; }
+html:has(.workspace-shell) #__nuxt { height: 100%; overflow: hidden; overscroll-behavior: none; }
 button, input, textarea, select { font: inherit; letter-spacing: 0; }
 button, select { cursor: pointer; }
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, .app-select-trigger:focus-visible { outline: 2px solid rgba(59,130,246,.42); outline-offset: 2px; }

@@ -826,7 +826,7 @@ test('collapse clicks never bubble to the node selection handler and every agent
   }
 })
 
-test('horizontal canvas gestures are cancelled without disabling panning or scrolling inside the agent', async () => {
+test('canvas gestures are claimed from their first event without disabling panning, nested scrolling or pinch zoom', async () => {
   assert.ok(document.documentElement.classList.contains('aigc-canvas-page'))
   assert.equal(window.getComputedStyle(document.documentElement).overscrollBehavior, 'none')
   const pane = document.querySelector('.vue-flow__pane')
@@ -837,6 +837,18 @@ test('horizontal canvas gestures are cancelled without disabling panning or scro
   assert.ok(swipe.defaultPrevented, 'prevent browser history navigation')
   assert.notEqual(store.viewport.value.x, before.x, 'the same gesture must still pan the canvas')
   assert.equal(store.viewport.value.zoom, before.zoom, 'two-finger sliding must not zoom')
+  for (const [deltaX,deltaY] of [[0,0],[0,40],[-2,0],[-60,20],[90,0]]) {
+    const event=new window.WheelEvent('wheel',{bubbles:true,cancelable:true,deltaX,deltaY,view:window})
+    document.querySelector('.workspace-header').dispatchEvent(event)
+    assert.equal(event.defaultPrevented,true,'even a zero-motion or vertical first event must be claimed')
+  }
+  for (const [deltaX,deltaY] of [[0,40],[0,-40],[60,0],[-60,0]]) {
+    const previous={...store.viewport.value}
+    pane.dispatchEvent(new window.WheelEvent('wheel',{bubbles:true,cancelable:true,deltaX,deltaY,view:window}))
+    await vue.nextTick()
+    assert.equal(store.viewport.value.zoom,previous.zoom)
+    assert.notEqual(deltaX?store.viewport.value.x:store.viewport.value.y,deltaX?previous.x:previous.y,'canvas panning must work in every direction')
+  }
   for (const target of [document.querySelector('.workspace-header'), document.querySelector('.canvas-sidebar'), document.body]) {
     const diagonal = new window.WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: -10, deltaY: 20 })
     target.dispatchEvent(diagonal)
@@ -852,7 +864,7 @@ test('horizontal canvas gestures are cancelled without disabling panning or scro
   const agent = nodeElement('character:actor').querySelector('.node-agent')
   const vertical = new window.WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: 0, deltaY: 40 })
   agent.querySelector('textarea').dispatchEvent(vertical)
-  assert.equal(vertical.defaultPrevented, false, 'the textarea can still scroll vertically')
+  assert.equal(vertical.defaultPrevented, true, 'a vertical start inside an agent must not release the gesture')
   const strip = agent.querySelector('.agent-reference-strip')
   Object.defineProperties(strip, { clientWidth: { configurable: true, value: 100 }, scrollWidth: { configurable: true, value: 400 } })
   strip.scrollLeft = 100
@@ -871,6 +883,21 @@ test('horizontal canvas gestures are cancelled without disabling panning or scro
   input.dispatchEvent(reading)
   assert.equal(reading.defaultPrevented, true, 'diagonal gestures are guarded even in a vertically scrollable input')
   assert.equal(input.scrollTop,95,'small horizontal jitter does not block reading long prompts')
+  const plainReading=new window.WheelEvent('wheel',{bubbles:true,cancelable:true,deltaX:0,deltaY:25})
+  input.dispatchEvent(plainReading)
+  assert.equal(plainReading.defaultPrevented,true)
+  assert.equal(input.scrollTop,120,'plain vertical scrolling is preserved through the same guarded path')
+  const lineReading=new window.WheelEvent('wheel',{bubbles:true,cancelable:true,deltaX:0,deltaY:1,deltaMode:1})
+  input.dispatchEvent(lineReading)
+  assert.equal(lineReading.defaultPrevented,true)
+  assert.ok(input.scrollTop>120,'line-based mouse wheels keep scrolling long prompts')
+  input.scrollTop=220
+  const atBottom=new window.WheelEvent('wheel',{bubbles:true,cancelable:true,deltaX:0,deltaY:40})
+  const canvasAtBoundary={...store.viewport.value}
+  input.dispatchEvent(atBottom)
+  assert.equal(atBottom.defaultPrevented,true)
+  assert.equal(input.scrollTop,220)
+  assert.deepEqual(store.viewport.value,canvasAtBoundary,'scrolling at an agent boundary must not leak to the canvas')
   const stopped = event => event.stopPropagation()
   document.addEventListener('wheel',stopped,true)
   const earlyGuard = new window.WheelEvent('wheel',{bubbles:true,cancelable:true,deltaX:-1,deltaY:10})
@@ -883,6 +910,9 @@ test('horizontal canvas gestures are cancelled without disabling panning or scro
   const afterLeaving = new window.WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: -60 })
   document.body.dispatchEvent(afterLeaving)
   assert.equal(afterLeaving.defaultPrevented, false, 'the page-level guard must be removed on navigation')
+  const afterLeavingVertical=new window.WheelEvent('wheel',{bubbles:true,cancelable:true,deltaY:40})
+  document.body.dispatchEvent(afterLeavingVertical)
+  assert.equal(afterLeavingVertical.defaultPrevented,false,'normal page scrolling is restored after leaving the canvas')
   await mountWorkspace()
 })
 

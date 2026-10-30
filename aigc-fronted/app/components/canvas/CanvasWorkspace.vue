@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onBeforeMount } from 'vue'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { ConnectionMode, MarkerType, SelectionMode, VueFlow, useVueFlow, type Connection, type Edge, type Node } from '@vue-flow/core'
@@ -542,9 +543,10 @@ function closeNodeAgent() {
   void nextTick(updateGroupToolbar)
 }
 
-function guardCanvasHistorySwipe(event: WheelEvent) {
-  if (!event.cancelable || event.ctrlKey || !event.deltaX) return
-  // Always cancel the native horizontal gesture, including inside nested scrollers.
+function guardCanvasWheel(event: WheelEvent) {
+  if (!event.cancelable || event.ctrlKey) return
+  // A gesture can start with zero horizontal motion; some browsers only allow
+  // cancelling that first event. Claim it before it becomes a history swipe.
   event.preventDefault()
   const horizontal = Math.abs(event.deltaX) >= Math.abs(event.deltaY)
   let element = event.target instanceof Element ? event.target : null
@@ -884,15 +886,17 @@ function scheduleLayoutSave() {
 watch(episodeNumber, () => {
   scriptOpen.value = false; scriptError.value = ''; closeNodeAgent(); void loadCanvas()
 })
+onBeforeMount(() => {
+  document.documentElement.classList.add('aigc-canvas-page')
+  document.body.classList.add('aigc-canvas-page')
+  window.addEventListener('wheel', guardCanvasWheel, { capture: true, passive: false })
+})
 onMounted(() => {
   try {
     const draft = JSON.parse(localStorage.getItem(`aigc-script-visual-draft:${props.projectId}`) || '{}')
     if (typeof draft.genre === 'string') scriptVisualDraft.genre = draft.genre
     if (typeof draft.style === 'string') scriptVisualDraft.style = draft.style
   } catch {}
-  document.documentElement.classList.add('aigc-canvas-page')
-  document.body.classList.add('aigc-canvas-page')
-  window.addEventListener('wheel', guardCanvasHistorySwipe, { capture: true, passive: false })
   sidebarOpen.value = localStorage.getItem(`aigc-canvas-sidebar:${props.projectId}`) !== '0'
   try {
     const savedScripts = JSON.parse(localStorage.getItem(`aigc-script-drafts:${props.projectId}`) || '{}')
@@ -906,7 +910,7 @@ onBeforeUnmount(() => {
   disposed = true
   if (pollingTimer) clearTimeout(pollingTimer)
   if (layoutTimer) clearTimeout(layoutTimer)
-  window.removeEventListener('wheel', guardCanvasHistorySwipe, true)
+  window.removeEventListener('wheel', guardCanvasWheel, true)
   document.documentElement.classList.remove('aigc-canvas-page')
   document.body.classList.remove('aigc-canvas-page')
 })
