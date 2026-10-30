@@ -1,0 +1,291 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AigcProject {
+  id           String   @id @default(uuid()) @db.Uuid
+  title        String
+  description  String   @default("")
+  genre        String   @default("")
+  style        String   @default("")
+  textModelId  String   @default("") @map("text_model_id")
+  aspectRatio  String   @default("16:9") @map("aspect_ratio")
+  storySummary String   @default("") @map("story_summary") @db.Text
+  status       String   @default("draft")
+  episodeCount Int      @default(1) @map("episode_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  episodes       AigcEpisode[]
+  assets         AigcAsset[]
+  textNodes      AigcCanvasTextNode[]
+  referenceNodes AigcCanvasReferenceNode[]
+  audioNodes     AigcCanvasAudioNode[]
+  shots          AigcShot[]
+  links          AigcCanvasLink[]
+  layouts        AigcCanvasLayout[]
+  jobs           AigcJob[]
+  editorMedia    AigcEditorMedia[]
+
+  @@map("aigc_projects")
+}
+
+model AigcAIConfig {
+  id            String   @id @default(uuid()) @db.Uuid
+  serviceType   String   @map("service_type")
+  provider      String   @default("")
+  apiProtocol   String   @default("openai") @map("api_protocol")
+  name          String
+  baseUrl       String   @map("base_url") @db.Text
+  apiKey        String   @default("") @map("api_key") @db.Text
+  models        Json     @default("[]")
+  defaultModel  String   @default("") @map("default_model")
+  endpoint      String   @default("")
+  queryEndpoint String   @default("") @map("query_endpoint")
+  priority      Int      @default(0)
+  isDefault     Boolean  @default(false) @map("is_default")
+  isActive      Boolean  @default(true) @map("is_active")
+  runtimeParams Json     @default("{}") @map("runtime_params")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([serviceType, isActive, isDefault, priority])
+  @@map("aigc_ai_configs")
+}
+
+model AigcEpisode {
+  id              String      @id @default(uuid()) @db.Uuid
+  projectId       String      @map("project_id") @db.Uuid
+  episodeNumber   Int         @map("episode_number")
+  title           String      @default("")
+  scriptContent   String      @default("") @map("script_content") @db.Text
+  storyboardNotes String      @default("") @map("storyboard_notes") @db.Text
+  timeline        Json?
+  timelineRevision Int        @default(0) @map("timeline_revision")
+  status          String      @default("draft")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  project         AigcProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assetLinks      AigcAssetEpisode[]
+
+  @@unique([projectId, episodeNumber])
+  @@map("aigc_episodes")
+}
+
+model AigcAsset {
+  id              String      @id @default(uuid()) @db.Uuid
+  projectId       String      @map("project_id") @db.Uuid
+  episodeNumber   Int         @default(1) @map("episode_number")
+  kind            String
+  name            String
+  description     String      @default("") @db.Text
+  appearance      String      @default("") @db.Text
+  prompt          String      @default("") @db.Text
+  imageUrl        String      @default("") @map("image_url") @db.Text
+  voiceUrl        String      @default("") @map("voice_url") @db.Text
+  aspectRatio     String      @default("1:1") @map("aspect_ratio")
+  relatedAssetIds Json        @default("[]") @map("related_asset_ids")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  project         AigcProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  versions AigcMediaVersion[]
+  episodes AigcAssetEpisode[]
+
+  @@index([projectId, episodeNumber, kind])
+  @@map("aigc_assets")
+}
+
+model AigcAssetEpisode {
+  assetId   String      @map("asset_id") @db.Uuid
+  episodeId String      @map("episode_id") @db.Uuid
+  asset     AigcAsset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  episode   AigcEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@id([assetId, episodeId])
+  @@index([episodeId])
+  @@map("aigc_asset_episodes")
+}
+
+model AigcCanvasTextNode {
+  id            String      @id @default(uuid()) @db.Uuid
+  projectId     String      @map("project_id") @db.Uuid
+  episodeNumber Int         @default(1) @map("episode_number")
+  title         String      @default("新建文本")
+  content       String      @default("") @db.Text
+  prompt        String      @default("") @db.Text
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  project       AigcProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, episodeNumber])
+  @@map("aigc_canvas_text_nodes")
+}
+
+model AigcCanvasReferenceNode {
+  id            String             @id @default(uuid()) @db.Uuid
+  projectId     String             @map("project_id") @db.Uuid
+  episodeNumber Int                @default(1) @map("episode_number")
+  name          String             @default("参考图")
+  imageUrl      String             @default("") @map("image_url") @db.Text
+  prompt        String             @default("") @db.Text
+  aspectRatio   String             @default("1:1") @map("aspect_ratio")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  project       AigcProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versions      AigcMediaVersion[]
+
+  @@index([projectId, episodeNumber])
+  @@map("aigc_canvas_reference_nodes")
+}
+
+model AigcCanvasAudioNode {
+  id            String             @id @default(uuid()) @db.Uuid
+  projectId     String             @map("project_id") @db.Uuid
+  episodeNumber Int                @default(1) @map("episode_number")
+  name          String             @default("参考音色")
+  audioUrl      String             @default("") @map("audio_url") @db.Text
+  duration      Float              @default(0)
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  project       AigcProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versions      AigcMediaVersion[]
+
+  @@index([projectId, episodeNumber])
+  @@map("aigc_canvas_audio_nodes")
+}
+
+model AigcShot {
+  id                String             @id @default(uuid()) @db.Uuid
+  projectId         String             @map("project_id") @db.Uuid
+  episodeNumber     Int                @default(1) @map("episode_number")
+  position          Int                @default(0)
+  title             String
+  description       String             @default("") @db.Text
+  sourceScript      String             @default("") @map("source_script") @db.Text
+  storyboardScript  String             @default("") @map("storyboard_script") @db.Text
+  universalPrompt   String             @default("") @map("universal_prompt") @db.Text
+  dialogue          String             @default("") @db.Text
+  shotType          String             @default("中景") @map("shot_type")
+  movement          String             @default("固定机位")
+  aspectRatio       String             @default("16:9") @map("aspect_ratio")
+  duration          Float              @default(5)
+  videoResolution   String             @default("480p") @map("video_resolution")
+  imageUrl          String             @default("") @map("image_url") @db.Text
+  lastImageUrl      String             @default("") @map("last_image_url") @db.Text
+  videoUrl          String             @default("") @map("video_url") @db.Text
+  assetIds          Json               @default("[]") @map("asset_ids")
+  referenceVideoIds Json               @default("[]") @map("reference_video_ids")
+  referenceAudioIds Json               @default("[]") @map("reference_audio_ids")
+  canvasVideoNode   Boolean            @default(false) @map("canvas_video_node")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  project           AigcProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versions          AigcMediaVersion[]
+
+  @@index([projectId, episodeNumber, position])
+  @@map("aigc_shots")
+}
+
+model AigcCanvasLink {
+  id            String      @id @default(uuid()) @db.Uuid
+  projectId     String      @map("project_id") @db.Uuid
+  episodeNumber Int         @default(1) @map("episode_number")
+  sourceKind    String      @map("source_kind")
+  sourceId      String      @map("source_id")
+  targetKind    String      @map("target_kind")
+  targetId      String      @map("target_id")
+  locked        Boolean     @default(false)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  project       AigcProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, episodeNumber, sourceKind, sourceId, targetKind, targetId])
+  @@index([projectId, episodeNumber])
+  @@map("aigc_canvas_links")
+}
+
+model AigcCanvasLayout {
+  id            String      @id @default(uuid()) @db.Uuid
+  projectId     String      @map("project_id") @db.Uuid
+  episodeNumber Int         @default(1) @map("episode_number")
+  nodeId        String      @map("node_id")
+  x             Float
+  y             Float
+  width         Float?
+  height        Float?
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  project       AigcProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, episodeNumber, nodeId])
+  @@map("aigc_canvas_layouts")
+}
+
+model AigcMediaVersion {
+  id              String                   @id @default(uuid()) @db.Uuid
+  shotId          String?                  @map("shot_id") @db.Uuid
+  assetId         String?                  @map("asset_id") @db.Uuid
+  referenceNodeId String?                  @map("reference_node_id") @db.Uuid
+  audioNodeId     String?                  @map("audio_node_id") @db.Uuid
+  kind            String
+  url             String                   @db.Text
+  source          String                   @default("generated")
+  aspectRatio     String                   @default("") @map("aspect_ratio")
+  isCurrent       Boolean                  @default(false) @map("is_current")
+  createdAt       DateTime                 @default(now()) @map("created_at")
+  shot            AigcShot?                @relation(fields: [shotId], references: [id], onDelete: Cascade)
+  asset           AigcAsset?               @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  referenceNode   AigcCanvasReferenceNode? @relation(fields: [referenceNodeId], references: [id], onDelete: Cascade)
+  audioNode       AigcCanvasAudioNode?     @relation(fields: [audioNodeId], references: [id], onDelete: Cascade)
+
+  @@index([shotId, kind, createdAt])
+  @@index([assetId, kind, createdAt])
+  @@index([referenceNodeId, kind, createdAt])
+  @@index([audioNodeId, kind, createdAt])
+  @@map("aigc_media_versions")
+}
+
+model AigcJob {
+  id              String      @id @default(uuid()) @db.Uuid
+  projectId       String      @map("project_id") @db.Uuid
+  episodeNumber   Int         @default(1) @map("episode_number")
+  kind            String
+  targetId        String      @default("") @map("target_id")
+  modelId         String      @default("") @map("model_id")
+  status          String      @default("queued")
+  progress        Int         @default(0)
+  input           Json        @default("{}")
+  references      Json        @default("[]")
+  result          Json        @default("{}")
+  error           String      @default("") @db.Text
+  cancelRequested Boolean     @default(false) @map("cancel_requested")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  project         AigcProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, episodeNumber, status])
+  @@map("aigc_jobs")
+}
+
+model AigcEditorMedia {
+  id            String      @id @default(uuid()) @db.Uuid
+  projectId     String      @map("project_id") @db.Uuid
+  episodeNumber Int         @default(1) @map("episode_number")
+  sourceKey     String      @map("source_key")
+  name          String
+  kind          String
+  url           String      @db.Text
+  duration      Int
+  width         Int         @default(0)
+  height        Int         @default(0)
+  hasAudio      Boolean     @default(false) @map("has_audio")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  project       AigcProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, episodeNumber, sourceKey])
+  @@map("aigc_editor_media")
+}

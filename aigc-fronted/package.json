@@ -1,0 +1,28 @@
+{
+  "name": "aigc-fronted",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "test:canvas": "node --test tests/canvas-render.test.mjs",
+    "test:home": "node --test tests/home.test.mjs",
+    "test:editor": "node --test tests/editor.test.mjs",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@vue-flow/background": "^1.3.2",
+    "@vue-flow/controls": "^1.1.3",
+    "@vue-flow/core": "^1.48.2",
+    "lucide-vue-next": "^0.577.0",
+    "nuxt": "^4.6.2",
+    "vue": "^3.5.44",
+    "vue-router": "^5.4.0"
+  },
+  "devDependencies": {
+    "happy-dom": "^21.0.4",
+    "typescript": "^7.0.2"
+  }
+}
