@@ -1,0 +1,35 @@
+# Private environment/configuration; only sanitized examples are publishable.
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+
+# Dependencies, generated clients, build output and caches.
+**/node_modules/
+**/dist/
+**/build/
+**/.nuxt/
+**/.output/
+**/.nitro/
+**/.data/
+**/.cache/
+**/coverage/
+**/.nyc_output/
+**/*.tsbuildinfo
+/aigc-backend/generated/
+
+# Uploaded/generated media, database backups and runtime logs.
+**/uploads/
+/backups/
+**/logs/
+**/*.log
+**/*.log.*
+**/*.pid
+**/.tmp/
+**/.temp/
+
+# Local editor/OS state.
+**/.DS_Store
+**/.idea/
+**/.vscode/

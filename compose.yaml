@@ -1,0 +1,98 @@
+name: ${COMPOSE_PROJECT_NAME:-aigc}
+
+x-backend: &backend-image
+  image: aigc-backend:local
+  build:
+    context: ./aigc-backend
+  init: true
+
+x-database-environment: &database-environment
+  DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the root .env}@db:5432/${POSTGRES_DB:-aigc}?schema=public}
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  db:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aigc}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the root .env}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    logging: *logging
+
+  migrate:
+    <<: *backend-image
+    restart: "no"
+    command: [./node_modules/.bin/prisma, migrate, deploy]
+    environment: *database-environment
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    logging: *logging
+
+  backend:
+    <<: *backend-image
+    restart: unless-stopped
+    environment:
+      <<: *database-environment
+      NODE_ENV: production
+      PORT: "3001"
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      PUBLIC_ASSET_BASE_URL: ${PUBLIC_ASSET_BASE_URL:-}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_BUCKET: ${R2_BUCKET:-aigc}
+      R2_REGION: ${R2_REGION:-auto}
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL:-}
+    ports:
+      - "${HOST_BIND_IP:-127.0.0.1}:${BACKEND_PORT:-3001}:3001"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    stop_grace_period: 30s
+    logging: *logging
+
+  frontend:
+    image: aigc-frontend:local
+    build:
+      context: ./aigc-fronted
+    init: true
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3000"
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://localhost:3001/api}
+      NUXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "${HOST_BIND_IP:-127.0.0.1}:${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  database:
+  uploads:
